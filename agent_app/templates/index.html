@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice Agent</title>
+    <style>
+        /* General Styles */
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* Main Container */
+        .container {
+            max-width: 600px;
+            margin: 50px auto;
+            background: white;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+        }
+
+        /* Buttons */
+        button {
+            background: #007BFF;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            background: #0056b3;
+        }
+
+        /* Audio Player */
+        #audioPlayer {
+            margin-top: 15px;
+            width: 100%;
+        }
+
+        /* Status Message */
+        #status {
+            margin-top: 10px;
+            font-size: 14px;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>AI Voice Agent</h2>
+        <p>Click the button below to record your question.</p>
+        <button id="recordBtn">Start Recording</button>
+        <p id="status"></p>
+        <audio id="audioPlayer" controls style="display: none;"></audio>
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const recordBtn = document.getElementById("recordBtn");
+            const statusText = document.getElementById("status");
+            const audioPlayer = document.getElementById("audioPlayer");
+
+            let mediaRecorder;
+            let audioChunks = [];
+
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                navigator.mediaDevices.getUserMedia({ audio: true })
+                    .then((stream) => {
+                        mediaRecorder = new MediaRecorder(stream);
+
+                        mediaRecorder.ondataavailable = (event) => {
+                            audioChunks.push(event.data);
+                        };
+
+                        mediaRecorder.onstop = () => {
+                            const audioBlob = new Blob(audioChunks, { type: "audio/wav" });
+                            audioChunks = [];
+                            uploadAudio(audioBlob);
+                        };
+                    })
+                    .catch((error) => {
+                        console.error("Microphone access denied:", error);
+                        statusText.textContent = "Microphone access denied!";
+                    });
+            } else {
+                statusText.textContent = "Audio recording not supported in this browser.";
+            }
+
+            recordBtn.addEventListener("click", function () {
+                if (mediaRecorder.state === "inactive") {
+                    mediaRecorder.start();
+                    recordBtn.textContent = "Stop Recording";
+                    statusText.textContent = "Recording...";
+                } else {
+                    mediaRecorder.stop();
+                    recordBtn.textContent = "Start Recording";
+                    statusText.textContent = "Processing...";
+                }
+            });
+
+            function uploadAudio(audioBlob) {
+                const formData = new FormData();
+                formData.append("audio", audioBlob, "voice_query.wav");
+
+                fetch("/api/ask/", {
+                    method: "POST",
+                    body: formData,
+                })
+                    .then((response) => response.json())
+                    .then((data) => {
+                        if (data.audio_file) {
+                            statusText.textContent = "Response received!";
+                            audioPlayer.src = data.audio_file;
+                            audioPlayer.style.display = "block";
+                        } else {
+                            statusText.textContent = "Error processing your request.";
+                        }
+                    })
+                    .catch((error) => {
+                        console.error("Error:", error);
+                        statusText.textContent = "Failed to connect to the server.";
+                    });
+            }
+        });
+    </script>
+
+</body>
+</html>
