@@ -11,7 +11,7 @@ import requests
 from django.core.files.storage import default_storage
 from django.shortcuts import render
 
-@csrf_exempt  # This disables CSRF (use it only for testing)
+@csrf_exempt  
 def ask_ai(request):
     if request.method == "POST":
         return JsonResponse({"message": "API is working!"})
